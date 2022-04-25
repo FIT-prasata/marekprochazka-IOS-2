@@ -26,16 +26,29 @@ typedef struct {
     int TB;
 } Tparams;
 
+typedef struct {
+    sem_t *mutex;
+    sem_t *barrier;
+    sem_t *oxyQue;
+    sem_t *hydQue;
+} TSemaphores;
+
 // Variables
+Tparams params;
+TSemaphores semaphores;
 
-// Shared memory
+int oxygen;
+int hydrogen;
 
-// Semaphores
 
 // Prototypes
 
 // Save parameters to params struct, if error, save it to error variable
 int handle_args(int argc, char *argv[], Tparams *params);
+
+int semaphores_init(TSemaphores *semaphores);
+
+int semaphores_destroy(TSemaphores *semaphores);
 
 
 

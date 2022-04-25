@@ -1,3 +1,5 @@
 *.exe
 *.o
 main
+
+stolen_code.c
