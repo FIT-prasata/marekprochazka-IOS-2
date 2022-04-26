@@ -6,7 +6,7 @@ int main(int argc, char *argv[])
     if (handle_args(argc, argv, &params) != STATUS_OK) return STATUS_ERROR;
     if (semaphores_init(&semaphores) != STATUS_OK) return STATUS_ERROR;
     if (shm_init(&memory, &memory_variables) != STATUS_OK) return STATUS_ERROR;
-    
+    if (parent_process(&params, &semaphores, &memory_variables) != STATUS_OK) return STATUS_ERROR;
     if (semaphores_destroy(&semaphores) != STATUS_OK) return STATUS_ERROR;
     if (shm_destroy(&memory, &memory_variables) != STATUS_OK) return STATUS_ERROR;
     
@@ -137,4 +137,123 @@ int shm_destroy(TSMemory *memory, TSMemoryVariables *memory_variables) {
     }
    
     return STATUS_OK;
+}
+
+
+int parent_process(Tparams *params, TSemaphores *semaphores, TSMemoryVariables *memory_variables) {
+    pid_t parent_process, children_O[params->NO], children_H[params->NH], O_process_instance, H_process_instance;
+
+
+    parent_process = fork();
+    printf("Parent process: %d\n", parent_process);
+    // Oxyde processes
+    if (parent_process == 0) {
+        for (int i = 0; i < params->NO; i++) {
+            O_process_instance = fork();
+            if (O_process_instance == 0) {
+                printf("Oxyde process %d\n", i);
+                oxygen_process(i, semaphores, memory_variables);
+                printf("Oxyde process %d finished\n", i);
+                exit(0);
+            }
+            children_O[i] = O_process_instance;
+            
+        }
+        // wait for child processes to exit
+        for (int i = 0; i < params->NO; i++) {
+            waitpid(children_O[i], NULL, 0);
+        }
+    }
+
+    // Hydrogen processes
+    else {
+        for (int i = 0; i < params->NH; i++) {
+            H_process_instance = fork();
+            if (H_process_instance == 0) {
+                printf("Hydrogen process %d\n", i);
+                hydrogen_process(i, semaphores, memory_variables);
+                printf("Hydrogen process %d finished\n", i);
+                exit(0);
+            }
+            children_H[i] = H_process_instance;
+        }
+        // wait for child processes to exit
+        for (int i = 0; i < params->NH; i++) {
+            waitpid(children_H[i], NULL, 0);
+        }
+    }
+    if (parent_process == 0) {
+        exit(0);
+    }
+    return STATUS_OK;
+}
+
+void oxygen_process(int id, TSemaphores *semaphores, TSMemoryVariables *memory_variables) {
+    printf("Oxygen process %d started\n", id);
+    UNUSED(semaphores);
+    UNUSED(memory_variables);
+
+    // while (1) {
+    //     sem_wait(semaphores->mutex);
+    //     if (*(memory_variables->hydrogen) == 2) {
+    //         sem_post(semaphores->mutex);
+    //         sem_wait(semaphores->barrier);
+    //         sem_wait(semaphores->mutex);
+    //         *(memory_variables->oxygen) += 1;
+    //         sem_post(semaphores->mutex);
+    //         sem_post(semaphores->oxyQue);
+    //         sem_wait(semaphores->hydQue);
+    //         sem_wait(semaphores->mutex);
+    //         *(memory_variables->hydrogen) -= 1;
+    //         sem_post(semaphores->mutex);
+    //         sem_post(semaphores->barrier);
+    //     }
+    //     else {
+    //         sem_post(semaphores->mutex);
+    //         sem_wait(semaphores->barrier);
+    //         sem_wait(semaphores->mutex);
+    //         *(memory_variables->oxygen) += 1;
+    //         sem_post(semaphores->mutex);
+    //         sem_post(semaphores->oxyQue);
+    //         sem_wait(semaphores->hydQue);
+    //         sem_wait(semaphores->mutex);
+    //         *(memory_variables->hydrogen) -= 1;
+    //         sem_post(semaphores->mutex);
+    //         sem_post(semaphores->barrier);
+    //     }
+    // }
+}
+void hydrogen_process(int id, TSemaphores *semaphores, TSMemoryVariables *memory_variables){
+    printf("Hydrogen process %d started\n", id);
+    UNUSED(semaphores);
+    UNUSED(memory_variables);
+    // while (1) {
+    //     sem_wait(semaphores->mutex);
+    //     if (*(memory_variables->oxygen) == 1) {
+    //         sem_post(semaphores->mutex);
+    //         sem_wait(semaphores->barrier);
+    //         sem_wait(semaphores->mutex);
+    //         *(memory_variables->hydrogen) += 1;
+    //         sem_post(semaphores->mutex);
+    //         sem_post(semaphores->hydQue);
+    //         sem_wait(semaphores->oxyQue);
+    //         sem_wait(semaphores->mutex);
+    //         *(memory_variables->oxygen) -= 1;
+    //         sem_post(semaphores->mutex);
+    //         sem_post(semaphores->barrier);
+    //     }
+    //     else {
+    //         sem_post(semaphores->mutex);
+    //         sem_wait(semaphores->barrier);
+    //         sem_wait(semaphores->mutex);
+    //         *(memory_variables->hydrogen) += 1;
+    //         sem_post(semaphores->mutex);
+    //         sem_post(semaphores->hydQue);
+    //         sem_wait(semaphores->oxyQue);
+    //         sem_wait(semaphores->mutex);
+    //         *(memory_variables->oxygen) -= 1;
+    //         sem_post(semaphores->mutex);
+    //         sem_post(semaphores->barrier);
+    //     }
+    // }
 }

@@ -14,6 +14,10 @@
 #include <semaphore.h>
 #include <sys/mman.h>
 #include <sys/shm.h>
+#include <sys/wait.h>
+#include <pthread.h>
+#include <unistd.h>
+
 
 // Exit statuses
 #define STATUS_OK 0
@@ -21,6 +25,8 @@
 
 #define type_O 'O'
 #define type_H 'H'
+
+#define UNUSED(x) (void)(x)
 
 
 // Structs
@@ -56,9 +62,6 @@ TSemaphores semaphores;
 TSMemory memory;
 TSMemoryVariables memory_variables;
 
-
-
-
 // Prototypes
 
 // Save parameters to params struct, if error, save it to error variable
@@ -72,8 +75,10 @@ int shm_init(TSMemory *memory, TSMemoryVariables *memory_variables);
 
 int shm_destroy(TSMemory *memory, TSMemoryVariables *memory_variables);
 
-void oxygen_process(int id);
-void hydrogen_process(int id);
+int parent_process(Tparams *params, TSemaphores *semaphores, TSMemoryVariables *memory_variables);
+
+void oxygen_process(int id, TSemaphores *semaphores, TSMemoryVariables *memory_variables);
+void hydrogen_process(int id, TSemaphores *semaphores, TSMemoryVariables *memory_variables);
 
 void atom_start(int id, char type);
 void atom_to_queue(int id, char type);

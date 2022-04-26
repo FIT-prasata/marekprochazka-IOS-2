@@ -2,4 +2,4 @@
 #!shellscript
 
 make --silent
-./main 10 20 30 40
+./main 2 4 30 40
