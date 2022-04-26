@@ -40,6 +40,7 @@ int handle_args(int argc, char *argv[], Tparams *params) {
         return STATUS_ERROR;
     }
 
+    printf("TI = %d\n", params->TI);
     return STATUS_OK;
 }
 
@@ -182,9 +183,9 @@ int parent_process(Tparams *params, TSemaphores *semaphores, TSMemoryVariables *
 }
 
 void oxygen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemoryVariables *memory_variables) {
+    srand(getpid());
     atom_start(id, type_O, semaphores, memory_variables);
-    int time_sleep = rand() % (params->TI + 1);
-    usleep(time_sleep * 1000);
+    usleep((rand() % (params->TI + 1)) * 1000);
     atom_to_queue(id, type_O, semaphores, memory_variables);
 
     // while (1) {
@@ -218,9 +219,9 @@ void oxygen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemoryVa
     // }
 }
 void hydrogen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemoryVariables *memory_variables){
+    srand(getpid());
     atom_start(id, type_H, semaphores, memory_variables);
-    int time_sleep = rand() % (params->TI + 1);
-    usleep(time_sleep * 1000);
+    usleep(rand() % (params->TI + 1) * 1000);
     atom_to_queue(id, type_H, semaphores, memory_variables);
     // while (1) {
     //     sem_wait(semaphores->mutex);

@@ -1,5 +1,6 @@
 #/!/bin/bash
 #!shellscript
 
+make clean --silent
 make --silent
-./main 2 4 500 40
+./main 5 10 900 40
