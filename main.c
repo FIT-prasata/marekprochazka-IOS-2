@@ -149,7 +149,7 @@ int parent_process(Tparams *params, TSemaphores *semaphores, TSMemoryVariables *
         for (int i = 0; i < params->NO; i++) {
             O_process_instance = fork();
             if (O_process_instance == 0) {
-                oxygen_process(i, params,semaphores, memory_variables);
+                oxygen_process(i+1, params,semaphores, memory_variables);
                 exit(0);
             }
             children_O[i] = O_process_instance;
@@ -166,7 +166,7 @@ int parent_process(Tparams *params, TSemaphores *semaphores, TSMemoryVariables *
         for (int i = 0; i < params->NH; i++) {
             H_process_instance = fork();
             if (H_process_instance == 0) {
-                hydrogen_process(i, params, semaphores, memory_variables);
+                hydrogen_process(i+1, params, semaphores, memory_variables);
                 exit(0);
             }
             children_H[i] = H_process_instance;
@@ -257,13 +257,13 @@ void hydrogen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemory
 void atom_start(int id, char type, TSemaphores *semaphores, TSMemoryVariables *memory_variables) {
     sem_wait(semaphores->mutex);
     (*memory_variables->count_outputs)++;
-    printf("%d: %c %d: started\n", *(memory_variables->count_outputs), type, id+1);
+    printf("%d: %c %d: started\n", *(memory_variables->count_outputs), type, id);
     sem_post(semaphores->mutex);
 }
 
 void atom_to_queue(int id, char type, TSemaphores *semaphores, TSMemoryVariables *memory_variables){
     sem_wait(semaphores->mutex);
     (*memory_variables->count_outputs)++;
-    printf("%d: %c %d: going to que\n", *(memory_variables->count_outputs), type, id+1);
+    printf("%d: %c %d: going to que\n", *(memory_variables->count_outputs), type, id);
     sem_post(semaphores->mutex);
 }
