@@ -2,14 +2,14 @@
 
 int main(int argc, char *argv[])
 {
-    if (
-        (handle_args(argc, argv, &params) != STATUS_OK) ||
-        (semaphores_init(&semaphores) != STATUS_OK) ||
-        (semaphores_destroy(&semaphores) != STATUS_OK)
-    )
-    {
-        return STATUS_ERROR;
-    }
+    
+    if (handle_args(argc, argv, &params) != STATUS_OK) return STATUS_ERROR;
+    if (semaphores_init(&semaphores) != STATUS_OK) return STATUS_ERROR;
+    if (shm_init(&memory, &memory_variables) != STATUS_OK) return STATUS_ERROR;
+    
+    if (semaphores_destroy(&semaphores) != STATUS_OK) return STATUS_ERROR;
+    if (shm_destroy(&memory, &memory_variables) != STATUS_OK) return STATUS_ERROR;
+    
     printf("%d %d %d %d\n", params.NO, params.NH, params.TI, params.TB);
     return 0;
 
@@ -85,4 +85,56 @@ int semaphores_destroy(TSemaphores *semaphores) {
             return STATUS_ERROR;
         }
         return STATUS_OK;
+}
+
+int shm_init(TSMemory *memory, TSMemoryVariables *memory_variables) {
+    // Alocate memory blocks 
+    if (
+        (memory->oxygen_id = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | 0644)) == -1 ||
+        (memory->hydrogen_id = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | 0644)) == -1 ||
+        (memory->count_outputs_id = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | 0644)) == -1
+    ) {
+        fprintf(stderr, "Error in shm initialization\n");
+        return STATUS_ERROR;
+    }
+    // Map memory blocks to pointers
+    if (
+        (memory_variables->oxygen = shmat(memory->oxygen_id, NULL, 0)) == (void *) -1 ||
+        (memory_variables->hydrogen = shmat(memory->hydrogen_id, NULL, 0)) == (void *) -1 ||
+        (memory_variables->count_outputs = shmat(memory->count_outputs_id, NULL, 0)) == (void *) -1
+    ) {
+        fprintf(stderr, "Error in shm initialization\n");
+        return STATUS_ERROR;
+    }
+    // Initialize memory blocks
+    *(memory_variables->oxygen) = 0;
+    *(memory_variables->hydrogen) = 0;
+    *(memory_variables->count_outputs) = 0;
+
+    return STATUS_OK;
+}
+
+int shm_destroy(TSMemory *memory, TSMemoryVariables *memory_variables) {
+    printf("%d %d %d\n", *(memory_variables->oxygen), *(memory_variables->hydrogen), *(memory_variables->count_outputs));
+     // Detach memory blocks
+    if (
+        shmdt(memory_variables->oxygen) == -1 ||
+        shmdt(memory_variables->hydrogen) == -1 ||
+        shmdt(memory_variables->count_outputs) == -1
+    ) {
+        fprintf(stderr, "Error in shm destruction while detaching memory blocks\n");
+        return STATUS_ERROR;
+    }
+    
+    // Destroy memory blocks
+    if (
+        shmctl(memory->oxygen_id, IPC_RMID, NULL) == -1 ||
+        shmctl(memory->hydrogen_id, IPC_RMID, NULL) == -1 ||
+        shmctl(memory->count_outputs_id, IPC_RMID, NULL) == -1
+    ) {
+        fprintf(stderr, "Error in shm destruction while destroying memory blocks\n");
+        return STATUS_ERROR;
+    }
+   
+    return STATUS_OK;
 }

@@ -13,10 +13,15 @@
 #include <sys/sem.h>
 #include <semaphore.h>
 #include <sys/mman.h>
+#include <sys/shm.h>
 
 // Exit statuses
 #define STATUS_OK 0
 #define STATUS_ERROR 1
+
+#define type_O 'O'
+#define type_H 'H'
+
 
 // Structs
 typedef struct {
@@ -33,12 +38,25 @@ typedef struct {
     sem_t *hydQue;
 } TSemaphores;
 
+typedef struct {
+    int oxygen_id;
+    int hydrogen_id;
+    int count_outputs_id;
+} TSMemory;
+
+typedef struct {
+    int *oxygen;
+    int *hydrogen;
+    int *count_outputs;
+} TSMemoryVariables;
+
 // Variables
 Tparams params;
 TSemaphores semaphores;
+TSMemory memory;
+TSMemoryVariables memory_variables;
 
-int oxygen;
-int hydrogen;
+
 
 
 // Prototypes
@@ -49,6 +67,20 @@ int handle_args(int argc, char *argv[], Tparams *params);
 int semaphores_init(TSemaphores *semaphores);
 
 int semaphores_destroy(TSemaphores *semaphores);
+
+int shm_init(TSMemory *memory, TSMemoryVariables *memory_variables);
+
+int shm_destroy(TSMemory *memory, TSMemoryVariables *memory_variables);
+
+void oxygen_process(int id);
+void hydrogen_process(int id);
+
+void atom_start(int id, char type);
+void atom_to_queue(int id, char type);
+void atom_creating_molecule(int id, char type);
+
+void H_not_enough(int id);
+void O_not_enough(int id);
 
 
 
