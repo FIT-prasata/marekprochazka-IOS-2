@@ -17,6 +17,7 @@
 #include <sys/wait.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <time.h>
 
 
 // Exit statuses
@@ -77,12 +78,12 @@ int shm_destroy(TSMemory *memory, TSMemoryVariables *memory_variables);
 
 int parent_process(Tparams *params, TSemaphores *semaphores, TSMemoryVariables *memory_variables);
 
-void oxygen_process(int id, TSemaphores *semaphores, TSMemoryVariables *memory_variables);
-void hydrogen_process(int id, TSemaphores *semaphores, TSMemoryVariables *memory_variables);
+void oxygen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemoryVariables *memory_variables);
+void hydrogen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemoryVariables *memory_variables);
 
-void atom_start(int id, char type);
-void atom_to_queue(int id, char type);
-void atom_creating_molecule(int id, char type);
+void atom_start(int id, char type, TSemaphores *semaphores, TSMemoryVariables *memory_variables);
+void atom_to_queue(int id, char type, TSemaphores *semaphores, TSMemoryVariables *memory_variables);
+void atom_creating_molecule(int id, char type, TSemaphores *semaphores, TSMemoryVariables *memory_variables);
 
 void H_not_enough(int id);
 void O_not_enough(int id);

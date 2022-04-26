@@ -10,7 +10,6 @@ int main(int argc, char *argv[])
     if (semaphores_destroy(&semaphores) != STATUS_OK) return STATUS_ERROR;
     if (shm_destroy(&memory, &memory_variables) != STATUS_OK) return STATUS_ERROR;
     
-    printf("%d %d %d %d\n", params.NO, params.NH, params.TI, params.TB);
     return 0;
 
 }
@@ -115,7 +114,6 @@ int shm_init(TSMemory *memory, TSMemoryVariables *memory_variables) {
 }
 
 int shm_destroy(TSMemory *memory, TSMemoryVariables *memory_variables) {
-    printf("%d %d %d\n", *(memory_variables->oxygen), *(memory_variables->hydrogen), *(memory_variables->count_outputs));
      // Detach memory blocks
     if (
         shmdt(memory_variables->oxygen) == -1 ||
@@ -145,15 +143,12 @@ int parent_process(Tparams *params, TSemaphores *semaphores, TSMemoryVariables *
 
 
     parent_process = fork();
-    printf("Parent process: %d\n", parent_process);
     // Oxyde processes
     if (parent_process == 0) {
         for (int i = 0; i < params->NO; i++) {
             O_process_instance = fork();
             if (O_process_instance == 0) {
-                printf("Oxyde process %d\n", i);
-                oxygen_process(i, semaphores, memory_variables);
-                printf("Oxyde process %d finished\n", i);
+                oxygen_process(i, params,semaphores, memory_variables);
                 exit(0);
             }
             children_O[i] = O_process_instance;
@@ -170,9 +165,7 @@ int parent_process(Tparams *params, TSemaphores *semaphores, TSMemoryVariables *
         for (int i = 0; i < params->NH; i++) {
             H_process_instance = fork();
             if (H_process_instance == 0) {
-                printf("Hydrogen process %d\n", i);
-                hydrogen_process(i, semaphores, memory_variables);
-                printf("Hydrogen process %d finished\n", i);
+                hydrogen_process(i, params, semaphores, memory_variables);
                 exit(0);
             }
             children_H[i] = H_process_instance;
@@ -188,10 +181,11 @@ int parent_process(Tparams *params, TSemaphores *semaphores, TSMemoryVariables *
     return STATUS_OK;
 }
 
-void oxygen_process(int id, TSemaphores *semaphores, TSMemoryVariables *memory_variables) {
-    printf("Oxygen process %d started\n", id);
-    UNUSED(semaphores);
-    UNUSED(memory_variables);
+void oxygen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemoryVariables *memory_variables) {
+    atom_start(id, type_O, semaphores, memory_variables);
+    int time_sleep = rand() % (params->TI + 1);
+    usleep(time_sleep * 1000);
+    atom_to_queue(id, type_O, semaphores, memory_variables);
 
     // while (1) {
     //     sem_wait(semaphores->mutex);
@@ -223,10 +217,11 @@ void oxygen_process(int id, TSemaphores *semaphores, TSMemoryVariables *memory_v
     //     }
     // }
 }
-void hydrogen_process(int id, TSemaphores *semaphores, TSMemoryVariables *memory_variables){
-    printf("Hydrogen process %d started\n", id);
-    UNUSED(semaphores);
-    UNUSED(memory_variables);
+void hydrogen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemoryVariables *memory_variables){
+    atom_start(id, type_H, semaphores, memory_variables);
+    int time_sleep = rand() % (params->TI + 1);
+    usleep(time_sleep * 1000);
+    atom_to_queue(id, type_H, semaphores, memory_variables);
     // while (1) {
     //     sem_wait(semaphores->mutex);
     //     if (*(memory_variables->oxygen) == 1) {
@@ -256,4 +251,18 @@ void hydrogen_process(int id, TSemaphores *semaphores, TSMemoryVariables *memory
     //         sem_post(semaphores->barrier);
     //     }
     // }
+}
+
+void atom_start(int id, char type, TSemaphores *semaphores, TSMemoryVariables *memory_variables) {
+    sem_wait(semaphores->mutex);
+    (*memory_variables->count_outputs)++;
+    printf("%d: %c %d: started\n", *(memory_variables->count_outputs), type, id+1);
+    sem_post(semaphores->mutex);
+}
+
+void atom_to_queue(int id, char type, TSemaphores *semaphores, TSMemoryVariables *memory_variables){
+    sem_wait(semaphores->mutex);
+    (*memory_variables->count_outputs)++;
+    printf("%d: %c %d: going to que\n", *(memory_variables->count_outputs), type, id+1);
+    sem_post(semaphores->mutex);
 }
