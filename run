@@ -3,4 +3,4 @@
 
 make clean --silent
 make --silent
-./main 5 10 1 40
+./main 2 4 50 40

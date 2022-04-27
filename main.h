@@ -39,8 +39,17 @@ typedef struct {
 } Tparams;
 
 typedef struct {
+    int n;
     sem_t *mutex;
-    sem_t *barrier;
+    sem_t *turnstile;
+    sem_t *turnstile2;
+} TBarrier;
+
+typedef struct {
+    sem_t *writing_mutex;
+    sem_t *building_mutex;
+    TBarrier *barrier;
+    TBarrier *barrier2;
     sem_t *oxyQue;
     sem_t *hydQue;
 } TSemaphores;
@@ -49,24 +58,28 @@ typedef struct {
     int oxygen_id;
     int hydrogen_id;
     int count_outputs_id;
+    int count_molecules_id;
+    int barrier_count_id;
 } TSMemory;
 
 typedef struct {
     int *oxygen;
     int *hydrogen;
     int *count_outputs;
+    int *count_molecules;
+    int *barrier_count;
 } TSMemoryVariables;
 
-// Variables
-Tparams params;
-TSemaphores semaphores;
-TSMemory memory;
-TSMemoryVariables memory_variables;
+
 
 // Prototypes
 
 // Save parameters to params struct, if error, save it to error variable
 int handle_args(int argc, char *argv[], Tparams *params);
+
+int barrier_init(TBarrier *barrier, int n);
+
+int barrier_destroy(TBarrier *barrier);
 
 int semaphores_init(TSemaphores *semaphores);
 
@@ -81,9 +94,14 @@ int parent_process(Tparams *params, TSemaphores *semaphores, TSMemoryVariables *
 void oxygen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemoryVariables *memory_variables);
 void hydrogen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemoryVariables *memory_variables);
 
+void wait_barrier_phase_1(TBarrier *barrier, int *count);
+void wait_barrier_phase_2(TBarrier *barrier, int *count);
+
 void atom_start(int id, char type, TSemaphores *semaphores, TSMemoryVariables *memory_variables);
 void atom_to_queue(int id, char type, TSemaphores *semaphores, TSMemoryVariables *memory_variables);
 void atom_creating_molecule(int id, char type, TSemaphores *semaphores, TSMemoryVariables *memory_variables);
+
+void molecule_created(int id, char type, TSemaphores *semaphores, TSMemoryVariables *memory_variables);
 
 void H_not_enough(int id);
 void O_not_enough(int id);

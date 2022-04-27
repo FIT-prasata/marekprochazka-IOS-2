@@ -2,13 +2,24 @@
 
 int main(int argc, char *argv[])
 {
+    // Variables
+    Tparams params;
+    TSemaphores semaphores;
+    TSMemory memory;
+    TSMemoryVariables memory_variables;
     
     if (handle_args(argc, argv, &params) != STATUS_OK) return STATUS_ERROR;
     if (semaphores_init(&semaphores) != STATUS_OK) return STATUS_ERROR;
     if (shm_init(&memory, &memory_variables) != STATUS_OK) return STATUS_ERROR;
+
+    printf("test start \n");
+    sem_wait(semaphores.barrier->mutex);
+    sem_post(semaphores.barrier->mutex);
+    printf("test end \n");
+
     if (parent_process(&params, &semaphores, &memory_variables) != STATUS_OK) return STATUS_ERROR;
-    if (semaphores_destroy(&semaphores) != STATUS_OK) return STATUS_ERROR;
     if (shm_destroy(&memory, &memory_variables) != STATUS_OK) return STATUS_ERROR;
+    if (semaphores_destroy(&semaphores) != STATUS_OK) return STATUS_ERROR;
     
     return 0;
 
@@ -44,21 +55,68 @@ int handle_args(int argc, char *argv[], Tparams *params) {
     return STATUS_OK;
 }
 
-int semaphores_init(TSemaphores *semaphores) {
+int barrier_init(TBarrier *barrier, int n) {
+    barrier->n = n;
+    barrier->mutex = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
+    barrier->turnstile = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
+    barrier->turnstile2 = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);                                                                                          
 
-    semaphores->mutex = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
-    semaphores->barrier = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
+    sem_init(barrier->mutex, 1, 1);
+    sem_init(barrier->turnstile, 1, 0);
+    sem_init(barrier->turnstile2, 1, 1);
+
+    if (
+        (barrier->mutex == SEM_FAILED) ||
+        (barrier->turnstile == SEM_FAILED) ||
+        (barrier->turnstile2 == SEM_FAILED)
+    )
+    {
+        fprintf(stderr, "Error in barrier_init\n");
+        return STATUS_ERROR;
+    }
+    return STATUS_OK;
+    
+}
+int barrier_destroy(TBarrier *barrier){
+    sem_destroy(barrier->mutex);
+    sem_destroy(barrier->turnstile);
+    sem_destroy(barrier->turnstile2);
+
+    if (
+        (barrier->mutex == SEM_FAILED) ||
+        (barrier->turnstile == SEM_FAILED) ||
+        (barrier->turnstile2 == SEM_FAILED)
+    ) {
+        fprintf(stderr, "Error in barrier_destroy\n");
+        return STATUS_ERROR;
+    }
+
+    return STATUS_OK;
+}
+
+int semaphores_init(TSemaphores *semaphores) {
+    semaphores->barrier = (TBarrier *) malloc(sizeof(TBarrier));
+    semaphores->barrier2 = (TBarrier *) malloc(sizeof(TBarrier));
+
+    int err_barrier = barrier_init(semaphores->barrier, 3);
+    int err_barrier2 = barrier_init(semaphores->barrier2, 3);
+
+    semaphores->writing_mutex = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
+    semaphores->building_mutex = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
     semaphores->oxyQue = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
     semaphores->hydQue = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
 
-    sem_init(semaphores->mutex, 1, 1);
-    sem_init(semaphores->barrier, 1, 3);
+    sem_init(semaphores->writing_mutex, 1, 1);
+    sem_init(semaphores->building_mutex, 1, 1);
+
     sem_init(semaphores->oxyQue, 1, 0);
     sem_init(semaphores->hydQue, 1, 0);
 
     if (
-        semaphores->mutex == SEM_FAILED ||
-        semaphores->barrier == SEM_FAILED ||
+        semaphores->writing_mutex == SEM_FAILED ||
+        semaphores->building_mutex == SEM_FAILED ||
+        err_barrier == STATUS_ERROR ||
+        err_barrier2 == STATUS_ERROR ||
         semaphores->oxyQue == SEM_FAILED ||
         semaphores->hydQue == SEM_FAILED
     ) {
@@ -70,20 +128,26 @@ int semaphores_init(TSemaphores *semaphores) {
 
 int semaphores_destroy(TSemaphores *semaphores) {
     
-        sem_destroy(semaphores->mutex);
-        sem_destroy(semaphores->barrier);
+        sem_destroy(semaphores->writing_mutex);
+        sem_destroy(semaphores->building_mutex);
         sem_destroy(semaphores->oxyQue);
         sem_destroy(semaphores->hydQue);
+
+        int err_barrier = barrier_destroy(semaphores->barrier);
+        int err_barrier2 = barrier_destroy(semaphores->barrier2);
     
         if (
-            semaphores->mutex == SEM_FAILED ||
-            semaphores->barrier == SEM_FAILED ||
+            semaphores->writing_mutex == SEM_FAILED ||
+            semaphores->building_mutex == SEM_FAILED ||
             semaphores->oxyQue == SEM_FAILED ||
-            semaphores->hydQue == SEM_FAILED
+            semaphores->hydQue == SEM_FAILED ||
+            err_barrier == STATUS_ERROR ||
+            err_barrier2 == STATUS_ERROR
         ) {
             fprintf(stderr, "Error in semaphores destruction\n");
             return STATUS_ERROR;
         }
+        free(semaphores->barrier);
         return STATUS_OK;
 }
 
@@ -92,7 +156,9 @@ int shm_init(TSMemory *memory, TSMemoryVariables *memory_variables) {
     if (
         (memory->oxygen_id = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | 0644)) == -1 ||
         (memory->hydrogen_id = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | 0644)) == -1 ||
-        (memory->count_outputs_id = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | 0644)) == -1
+        (memory->count_outputs_id = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | 0644)) == -1 ||
+        (memory->count_molecules_id = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | 0644)) == -1 ||
+        (memory->barrier_count_id = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | 0644)) == -1 
     ) {
         fprintf(stderr, "Error in shm initialization\n");
         return STATUS_ERROR;
@@ -101,7 +167,9 @@ int shm_init(TSMemory *memory, TSMemoryVariables *memory_variables) {
     if (
         (memory_variables->oxygen = shmat(memory->oxygen_id, NULL, 0)) == (void *) -1 ||
         (memory_variables->hydrogen = shmat(memory->hydrogen_id, NULL, 0)) == (void *) -1 ||
-        (memory_variables->count_outputs = shmat(memory->count_outputs_id, NULL, 0)) == (void *) -1
+        (memory_variables->count_outputs = shmat(memory->count_outputs_id, NULL, 0)) == (void *) -1 ||
+        (memory_variables->count_molecules = shmat(memory->count_molecules_id, NULL, 0)) == (void *) -1 ||
+        (memory_variables->barrier_count = shmat(memory->barrier_count_id, NULL, 0)) == (void *) -1
     ) {
         fprintf(stderr, "Error in shm initialization\n");
         return STATUS_ERROR;
@@ -110,6 +178,8 @@ int shm_init(TSMemory *memory, TSMemoryVariables *memory_variables) {
     *(memory_variables->oxygen) = 0;
     *(memory_variables->hydrogen) = 0;
     *(memory_variables->count_outputs) = 0;
+    *(memory_variables->count_molecules) = 0;
+    *(memory_variables->barrier_count) = 0;
 
     return STATUS_OK;
 }
@@ -119,7 +189,8 @@ int shm_destroy(TSMemory *memory, TSMemoryVariables *memory_variables) {
     if (
         shmdt(memory_variables->oxygen) == -1 ||
         shmdt(memory_variables->hydrogen) == -1 ||
-        shmdt(memory_variables->count_outputs) == -1
+        shmdt(memory_variables->count_outputs) == -1 ||
+        shmdt(memory_variables->count_molecules) == -1
     ) {
         fprintf(stderr, "Error in shm destruction while detaching memory blocks\n");
         return STATUS_ERROR;
@@ -129,7 +200,8 @@ int shm_destroy(TSMemory *memory, TSMemoryVariables *memory_variables) {
     if (
         shmctl(memory->oxygen_id, IPC_RMID, NULL) == -1 ||
         shmctl(memory->hydrogen_id, IPC_RMID, NULL) == -1 ||
-        shmctl(memory->count_outputs_id, IPC_RMID, NULL) == -1
+        shmctl(memory->count_outputs_id, IPC_RMID, NULL) == -1 ||
+        shmctl(memory->count_molecules_id, IPC_RMID, NULL) == -1
     ) {
         fprintf(stderr, "Error in shm destruction while destroying memory blocks\n");
         return STATUS_ERROR;
@@ -188,82 +260,143 @@ void oxygen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemoryVa
     usleep((rand() % (params->TI + 1)) * 1000);
     atom_to_queue(id, type_O, semaphores, memory_variables);
 
-    // while (1) {
-    //     sem_wait(semaphores->mutex);
-    //     if (*(memory_variables->hydrogen) == 2) {
-    //         sem_post(semaphores->mutex);
-    //         sem_wait(semaphores->barrier);
-    //         sem_wait(semaphores->mutex);
-    //         *(memory_variables->oxygen) += 1;
-    //         sem_post(semaphores->mutex);
-    //         sem_post(semaphores->oxyQue);
-    //         sem_wait(semaphores->hydQue);
-    //         sem_wait(semaphores->mutex);
-    //         *(memory_variables->hydrogen) -= 1;
-    //         sem_post(semaphores->mutex);
-    //         sem_post(semaphores->barrier);
-    //     }
-    //     else {
-    //         sem_post(semaphores->mutex);
-    //         sem_wait(semaphores->barrier);
-    //         sem_wait(semaphores->mutex);
-    //         *(memory_variables->oxygen) += 1;
-    //         sem_post(semaphores->mutex);
-    //         sem_post(semaphores->oxyQue);
-    //         sem_wait(semaphores->hydQue);
-    //         sem_wait(semaphores->mutex);
-    //         *(memory_variables->hydrogen) -= 1;
-    //         sem_post(semaphores->mutex);
-    //         sem_post(semaphores->barrier);
-    //     }
-    // }
+    // increasing number of existing oxygens
+    sem_wait(semaphores->building_mutex);
+    (*memory_variables->oxygen)++;
+    
+    // if there are enough hydrogens 
+    if (*memory_variables->hydrogen >= 2) {
+        // letting go two hydrogens
+        sem_post(semaphores->hydQue);
+        sem_post(semaphores->hydQue);
+        // decreasing number of existing hydrogens
+        (*memory_variables->hydrogen) -= 2;
+        // letting go one oxygen in que
+        sem_post(semaphores->oxyQue);
+        // decreasing number of existing oxygens
+        (*memory_variables->oxygen)--;
+    }
+    else
+    {
+        sem_post(semaphores->building_mutex);
+    }
+    printf("o %d h %d\n", *memory_variables->oxygen, *memory_variables->hydrogen);
+
+    // wating place for oxygen
+    sem_wait(semaphores->oxyQue);
+
+
+    // creating molecule 
+
+    atom_creating_molecule(id, type_O, semaphores, memory_variables);
+
+    
+    
+    
+    wait_barrier_phase_1(semaphores->barrier, memory_variables->barrier_count);
+    sem_wait(semaphores->writing_mutex);
+    (*memory_variables->count_molecules)++;
+    sem_post(semaphores->writing_mutex);
+    wait_barrier_phase_2(semaphores->barrier, memory_variables->barrier_count);
+    molecule_created(id, type_O, semaphores, memory_variables);
+    sem_post(semaphores->building_mutex);
+
+    exit(STATUS_OK);
+
+    
 }
 void hydrogen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemoryVariables *memory_variables){
     srand(getpid());
     atom_start(id, type_H, semaphores, memory_variables);
     usleep(rand() % (params->TI + 1) * 1000);
     atom_to_queue(id, type_H, semaphores, memory_variables);
-    // while (1) {
-    //     sem_wait(semaphores->mutex);
-    //     if (*(memory_variables->oxygen) == 1) {
-    //         sem_post(semaphores->mutex);
-    //         sem_wait(semaphores->barrier);
-    //         sem_wait(semaphores->mutex);
-    //         *(memory_variables->hydrogen) += 1;
-    //         sem_post(semaphores->mutex);
-    //         sem_post(semaphores->hydQue);
-    //         sem_wait(semaphores->oxyQue);
-    //         sem_wait(semaphores->mutex);
-    //         *(memory_variables->oxygen) -= 1;
-    //         sem_post(semaphores->mutex);
-    //         sem_post(semaphores->barrier);
-    //     }
-    //     else {
-    //         sem_post(semaphores->mutex);
-    //         sem_wait(semaphores->barrier);
-    //         sem_wait(semaphores->mutex);
-    //         *(memory_variables->hydrogen) += 1;
-    //         sem_post(semaphores->mutex);
-    //         sem_post(semaphores->hydQue);
-    //         sem_wait(semaphores->oxyQue);
-    //         sem_wait(semaphores->mutex);
-    //         *(memory_variables->oxygen) -= 1;
-    //         sem_post(semaphores->mutex);
-    //         sem_post(semaphores->barrier);
-    //     }
-    // }
+  
+    // increasing number of existing hydrogens
+    sem_wait(semaphores->building_mutex);
+    (*memory_variables->hydrogen)++;
+    
+    // if there are enough hydrogens and oxygen
+    if (*memory_variables->hydrogen >= 2 && *memory_variables->oxygen >= 1) {
+        // letting go two hydrogens
+        sem_post(semaphores->hydQue);
+        sem_post(semaphores->hydQue);
+        // decreasing number of existing hydrogens
+        (*memory_variables->hydrogen) -= 2;
+        // letting go one oxygen in que
+        sem_post(semaphores->oxyQue);
+        // decreasing number of existing oxygens
+        (*memory_variables->oxygen)--;
+    }
+    else
+    {
+        sem_post(semaphores->building_mutex);
+    }
+    printf("o %d h %d\n", *memory_variables->oxygen, *memory_variables->hydrogen);
+
+    // wating place for hydrogen
+    sem_wait(semaphores->hydQue);
+    atom_creating_molecule(id, type_H, semaphores, memory_variables);
+
+
+    wait_barrier_phase_1(semaphores->barrier, memory_variables->barrier_count);
+    
+    wait_barrier_phase_2(semaphores->barrier, memory_variables->barrier_count);
+    molecule_created(id, type_H, semaphores, memory_variables);
+
+    exit(STATUS_OK);
+}
+
+void wait_barrier_phase_1(TBarrier *barrier, int *count){
+    sem_wait(barrier->mutex);
+
+    (*count)++;
+    if(*count == barrier->n) {
+        sem_wait(barrier->turnstile2);
+        sem_post(barrier->turnstile);
+    }
+    sem_post(barrier->mutex);
+
+    sem_wait(barrier->turnstile);
+    sem_post(barrier->turnstile);
+}
+
+void wait_barrier_phase_2(TBarrier *barrier, int *count){
+    // phase 2
+    sem_wait(barrier->mutex);
+    (*count)--;
+    if(*count == 0) {
+        sem_wait(barrier->turnstile);
+        sem_post(barrier->turnstile2);
+    }
+    sem_post(barrier->mutex);
+    sem_wait(barrier->turnstile2);
+    sem_post(barrier->turnstile2);
 }
 
 void atom_start(int id, char type, TSemaphores *semaphores, TSMemoryVariables *memory_variables) {
-    sem_wait(semaphores->mutex);
+    sem_wait(semaphores->writing_mutex);
     (*memory_variables->count_outputs)++;
     printf("%d: %c %d: started\n", *(memory_variables->count_outputs), type, id);
-    sem_post(semaphores->mutex);
+    sem_post(semaphores->writing_mutex);
 }
 
 void atom_to_queue(int id, char type, TSemaphores *semaphores, TSMemoryVariables *memory_variables){
-    sem_wait(semaphores->mutex);
+    sem_wait(semaphores->writing_mutex);
     (*memory_variables->count_outputs)++;
     printf("%d: %c %d: going to que\n", *(memory_variables->count_outputs), type, id);
-    sem_post(semaphores->mutex);
+    sem_post(semaphores->writing_mutex);
+}
+
+void atom_creating_molecule(int id, char type, TSemaphores *semaphores, TSMemoryVariables *memory_variables){
+    sem_wait(semaphores->writing_mutex);
+    (*memory_variables->count_outputs)++;
+    printf("%d: %c %d: creating molecule %d\n", *(memory_variables->count_outputs), type, id, *(memory_variables->count_molecules));
+    sem_post(semaphores->writing_mutex);
+}
+
+void molecule_created(int id, char type, TSemaphores *semaphores, TSMemoryVariables *memory_variables){
+    sem_wait(semaphores->writing_mutex);
+    (*memory_variables->count_outputs)++;
+    printf("%d: %c %d: molecule %d created\n", *(memory_variables->count_outputs), type, id, *(memory_variables->count_molecules));
+    sem_post(semaphores->writing_mutex);
 }
