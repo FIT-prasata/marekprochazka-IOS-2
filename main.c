@@ -280,7 +280,6 @@ void oxygen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemoryVa
     {
         sem_post(semaphores->building_mutex);
     }
-    printf("o %d h %d\n", *memory_variables->oxygen, *memory_variables->hydrogen);
 
     // wating place for oxygen
     sem_wait(semaphores->oxyQue);
@@ -331,7 +330,6 @@ void hydrogen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemory
     {
         sem_post(semaphores->building_mutex);
     }
-    printf("o %d h %d\n", *memory_variables->oxygen, *memory_variables->hydrogen);
 
     // wating place for hydrogen
     sem_wait(semaphores->hydQue);
@@ -390,7 +388,7 @@ void atom_to_queue(int id, char type, TSemaphores *semaphores, TSMemoryVariables
 void atom_creating_molecule(int id, char type, TSemaphores *semaphores, TSMemoryVariables *memory_variables){
     sem_wait(semaphores->writing_mutex);
     (*memory_variables->count_outputs)++;
-    printf("%d: %c %d: creating molecule %d\n", *(memory_variables->count_outputs), type, id, *(memory_variables->count_molecules));
+    printf("%d: %c %d: creating molecule %d\n", *(memory_variables->count_outputs), type, id, *(memory_variables->count_molecules)+1);
     sem_post(semaphores->writing_mutex);
 }
 
