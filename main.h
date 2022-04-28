@@ -18,6 +18,7 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <time.h>
+#include <signal.h>
 
 
 // Exit statuses
@@ -96,12 +97,28 @@ void hydrogen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemory
 
 void wait_barrier_phase_1(TBarrier *barrier, int *count);
 void wait_barrier_phase_2(TBarrier *barrier, int *count);
+void wait_barrier(TBarrier *barrier, int *count);
 
 void atom_start(int id, char type, TSemaphores *semaphores, TSMemoryVariables *memory_variables);
 void atom_to_queue(int id, char type, TSemaphores *semaphores, TSMemoryVariables *memory_variables);
 void atom_creating_molecule(int id, char type, TSemaphores *semaphores, TSMemoryVariables *memory_variables);
 
 void molecule_created(int id, char type, TSemaphores *semaphores, TSMemoryVariables *memory_variables);
+
+void inc_molecule_count(TSemaphores *semaphores, TSMemoryVariables *memory_variables);
+
+// signals 
+
+// global variables for signal
+int global_atom_id;
+int global_atom_type;
+int *global_output_count;
+sem_t *global_writing_mutex;
+
+void init_globals(int id, char type,TSemaphores *semaphores ,TSMemoryVariables *memory_variables);
+//signal handler
+
+void handle_not_enough_atoms(int sig);
 
 void H_not_enough(int id);
 void O_not_enough(int id);

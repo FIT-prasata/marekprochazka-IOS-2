@@ -238,6 +238,7 @@ int parent_process(Tparams *params, TSemaphores *semaphores, TSMemoryVariables *
         for (int i = 0; i < params->NH; i++) {
             H_process_instance = fork();
             if (H_process_instance == 0) {
+                
                 hydrogen_process(i+1, params, semaphores, memory_variables);
                 exit(0);
             }
@@ -245,6 +246,7 @@ int parent_process(Tparams *params, TSemaphores *semaphores, TSMemoryVariables *
         }
         // wait for child processes to exit
         for (int i = 0; i < params->NH; i++) {
+
             waitpid(children_H[i], NULL, 0);
         }
     }
@@ -255,6 +257,11 @@ int parent_process(Tparams *params, TSemaphores *semaphores, TSMemoryVariables *
 }
 
 void oxygen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemoryVariables *memory_variables) {
+    init_globals(id, type_O, semaphores, memory_variables);
+    struct sigaction sa;
+    sa.sa_handler = &handle_not_enough_atoms;
+    sigaction(SIGUSR1, &sa, NULL);
+
     srand(getpid());
     atom_start(id, type_O, semaphores, memory_variables);
     usleep((rand() % (params->TI + 1)) * 1000);
@@ -288,14 +295,11 @@ void oxygen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemoryVa
     // creating molecule 
 
     atom_creating_molecule(id, type_O, semaphores, memory_variables);
-
-    
+    usleep(rand() % (params->TB + 1) * 1000);
     
     
     wait_barrier_phase_1(semaphores->barrier, memory_variables->barrier_count);
-    sem_wait(semaphores->writing_mutex);
-    (*memory_variables->count_molecules)++;
-    sem_post(semaphores->writing_mutex);
+    inc_molecule_count(semaphores, memory_variables);
     wait_barrier_phase_2(semaphores->barrier, memory_variables->barrier_count);
     molecule_created(id, type_O, semaphores, memory_variables);
     sem_post(semaphores->building_mutex);
@@ -305,6 +309,11 @@ void oxygen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemoryVa
     
 }
 void hydrogen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemoryVariables *memory_variables){
+    init_globals(id, type_H, semaphores, memory_variables);
+    struct sigaction sa;
+    sa.sa_handler = &handle_not_enough_atoms;
+    sigaction(SIGUSR1, &sa, NULL);
+
     srand(getpid());
     atom_start(id, type_H, semaphores, memory_variables);
     usleep(rand() % (params->TI + 1) * 1000);
@@ -335,10 +344,8 @@ void hydrogen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemory
     sem_wait(semaphores->hydQue);
     atom_creating_molecule(id, type_H, semaphores, memory_variables);
 
-
-    wait_barrier_phase_1(semaphores->barrier, memory_variables->barrier_count);
+    wait_barrier(semaphores->barrier, memory_variables->barrier_count);
     
-    wait_barrier_phase_2(semaphores->barrier, memory_variables->barrier_count);
     molecule_created(id, type_H, semaphores, memory_variables);
 
     exit(STATUS_OK);
@@ -371,6 +378,11 @@ void wait_barrier_phase_2(TBarrier *barrier, int *count){
     sem_post(barrier->turnstile2);
 }
 
+void wait_barrier(TBarrier *barrier, int *count){
+    wait_barrier_phase_1(barrier, count);
+    wait_barrier_phase_2(barrier, count);
+}
+
 void atom_start(int id, char type, TSemaphores *semaphores, TSMemoryVariables *memory_variables) {
     sem_wait(semaphores->writing_mutex);
     (*memory_variables->count_outputs)++;
@@ -397,4 +409,25 @@ void molecule_created(int id, char type, TSemaphores *semaphores, TSMemoryVariab
     (*memory_variables->count_outputs)++;
     printf("%d: %c %d: molecule %d created\n", *(memory_variables->count_outputs), type, id, *(memory_variables->count_molecules));
     sem_post(semaphores->writing_mutex);
+}
+
+void inc_molecule_count(TSemaphores *semaphores, TSMemoryVariables *memory_variables){
+    sem_wait(semaphores->writing_mutex);
+    (*memory_variables->count_molecules)++;
+    sem_post(semaphores->writing_mutex);
+}
+
+void init_globals(int id, char type, TSemaphores *semaphores, TSMemoryVariables *memory_variables){
+    global_atom_id = id;
+    global_atom_type = type;
+    global_output_count = memory_variables->count_outputs;
+    global_writing_mutex = semaphores->writing_mutex;
+}
+
+void handle_not_enough_atoms(int sig) {
+    UNUSED(sig);
+    sem_wait(global_writing_mutex);
+    printf("%d: %c %d: not enough atoms\n", ++(*global_output_count), global_atom_type, global_atom_id);
+    sem_post(global_writing_mutex);
+    exit(0);
 }
