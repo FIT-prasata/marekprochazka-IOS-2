@@ -111,23 +111,6 @@ void molecule_created(int id, char type, TSemaphores *semaphores, TSMemoryVariab
 
 void inc_molecule_count(TSemaphores *semaphores, TSMemoryVariables *memory_variables);
 
-// signals 
-
-// global variables for signals
-int global_atom_id;
-int global_atom_type;
-int *global_output_count;
-sem_t *global_writing_mutex;
-
-int global_NO;
-int global_NH;
-pid_t *global_children_O, *global_children_H;
-
-void init_globals(int id, char type,TSemaphores *semaphores ,TSMemoryVariables *memory_variables);
-//signal handler
-
-void handle_signal_to_parent(int sig);
-void handle_not_enough_atoms(int sig);
 
 void H_not_enough(int id);
 void O_not_enough(int id);

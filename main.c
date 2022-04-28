@@ -223,23 +223,8 @@ void init_max_possible_molecules(int *molecules_left, Tparams *params) {
 
 
 int parent_process(Tparams *params, TSemaphores *semaphores, TSMemoryVariables *memory_variables) {
-    pid_t parent_process,  O_process_instance, H_process_instance;
-    
-
+    pid_t parent_process, children_O[params->NO], children_H[params->NH],   O_process_instance, H_process_instance;
     init_max_possible_molecules(memory_variables->molecules_left, params);
-    global_NH = params->NH;
-    global_NO = params->NO;
-    global_children_H = malloc(sizeof(pid_t) * params->NH);
-    global_children_O = malloc(sizeof(pid_t) * params->NO);
-    struct sigaction sa;
-    sigset_t mask;
-    sigemptyset(&mask);
-    sigaddset(&mask, SIGUSR1);
-    sa.sa_mask = mask;
-    sa.sa_handler = &handle_signal_to_parent;
-    sigaction(SIGUSR2, &sa, NULL);
-
-
     parent_process = fork();
     // Oxyde processes
     if (parent_process == 0) {
@@ -248,12 +233,12 @@ int parent_process(Tparams *params, TSemaphores *semaphores, TSMemoryVariables *
             if (O_process_instance == 0) {
                 oxygen_process(i+1, params,semaphores, memory_variables);
             }
-            global_children_O[i] = O_process_instance;
+            children_O[i] = O_process_instance;
             
         }
         // wait for child processes to exit
         for (int i = 0; i < params->NO; i++) {
-            waitpid(global_children_O[i], NULL, 0);
+            waitpid(children_O[i], NULL, 0);
         }
     }
 
@@ -265,33 +250,22 @@ int parent_process(Tparams *params, TSemaphores *semaphores, TSMemoryVariables *
                 
                 hydrogen_process(i+1, params, semaphores, memory_variables);
             }
-            global_children_H[i] = H_process_instance;
+            children_H[i] = H_process_instance;
         }
         // wait for child processes to exit
         for (int i = 0; i < params->NH; i++) {
 
-            waitpid(global_children_H[i], NULL, 0);
+            waitpid(children_H[i], NULL, 0);
         }
     }
     if (parent_process == 0) {
         exit(0);
     }
 
-    free(global_children_H);
-    free(global_children_O);
     return STATUS_OK;
 }
 
 void oxygen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemoryVariables *memory_variables) {
-    init_globals(id, type_O, semaphores, memory_variables);
-    
-    struct sigaction sa;
-    sigset_t mask;
-    sigfillset(&mask);
-    sa.sa_handler = &handle_not_enough_atoms;
-    sa.sa_mask = mask;
-    sigaction(SIGUSR1, &sa, NULL);
-
     srand(getpid());
     atom_start(id, type_O, semaphores, memory_variables);
     usleep((rand() % (params->TI + 1)) * 1000);
@@ -319,11 +293,7 @@ void oxygen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemoryVa
     }
 
     // wating place for oxygen (can receive not enough signal)
-    sigemptyset(&mask);
-    sigaddset(&mask, SIGUSR1);
-    sigprocmask(SIG_UNBLOCK, &mask, NULL);
     sem_wait(semaphores->oxyQue);
-    sigprocmask(SIG_BLOCK, &mask, NULL);
 
 
 
@@ -342,23 +312,12 @@ void oxygen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemoryVa
     (*memory_variables->molecules_left)--;
     sem_post(semaphores->writing_mutex);
 
-    if (*memory_variables->molecules_left == 0) {
-        kill(getppid(), SIGUSR2);
-    }
 
     exit(STATUS_OK);
 
     
 }
 void hydrogen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemoryVariables *memory_variables){
-    init_globals(id, type_H, semaphores, memory_variables);
-    struct sigaction sa;
-    sigset_t mask;
-    sigemptyset(&mask);
-    sa.sa_mask = mask;
-    sa.sa_handler = &handle_not_enough_atoms;
-    sigaction(SIGUSR1, &sa, NULL);
-
     srand(getpid());
     atom_start(id, type_H, semaphores, memory_variables);
     usleep(rand() % (params->TI + 1) * 1000);
@@ -386,11 +345,7 @@ void hydrogen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemory
     }
 
     // wating place for hydrogen
-    sigemptyset(&mask);
-    sigaddset(&mask, SIGUSR1);
-    sigprocmask(SIG_UNBLOCK, &mask, NULL);
     sem_wait(semaphores->hydQue);
-    sigprocmask(SIG_BLOCK, &mask, NULL);
 
 
 
@@ -469,28 +424,7 @@ void inc_molecule_count(TSemaphores *semaphores, TSMemoryVariables *memory_varia
     sem_post(semaphores->writing_mutex);
 }
 
-void init_globals(int id, char type, TSemaphores *semaphores, TSMemoryVariables *memory_variables){
-    global_atom_id = id;
-    global_atom_type = type;
-    global_output_count = memory_variables->count_outputs;
-    global_writing_mutex = semaphores->writing_mutex;
-}
 
-void handle_signal_to_parent(int sig){
-    UNUSED(sig);
-    for (int i = 0; i < global_NO; i++) {
 
-            kill(global_children_O[i], SIGUSR1);
-        }
-    for (int i = 0; i < global_NH; i++) {
-            kill(global_children_H[i], SIGUSR1);
-        }
-}
 
-void handle_not_enough_atoms(int sig) {
-    UNUSED(sig);
-    sem_wait(global_writing_mutex);
-    printf("%d: %c %d: not enough atoms\n", ++(*global_output_count), global_atom_type, global_atom_id);
-    sem_post(global_writing_mutex);
-    exit(0);
-}
+
