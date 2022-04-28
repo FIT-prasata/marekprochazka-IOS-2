@@ -61,7 +61,10 @@ typedef struct {
     int count_outputs_id;
     int count_molecules_id;
     int barrier_count_id;
-    int molecules_left_id;
+    int max_molecules_id;
+    int is_building_possilbe_id;
+    int o_left_id;
+    int h_left_id;
 } TSMemory;
 
 typedef struct {
@@ -70,7 +73,10 @@ typedef struct {
     int *count_outputs;
     int *count_molecules;
     int *barrier_count;
-    int *molecules_left;
+    int *max_molecules;
+    int *is_building_possilbe;
+    int *o_left;
+    int *h_left;
 } TSMemoryVariables;
 
 
@@ -92,7 +98,7 @@ int shm_init(TSMemory *memory, TSMemoryVariables *memory_variables);
 
 int shm_destroy(TSMemory *memory, TSMemoryVariables *memory_variables);
 
-void init_max_possible_molecules(int *molecules_left, Tparams *params);
+void init_max_possible_molecules(TSMemoryVariables *memory_variables, Tparams *params);
 
 int parent_process(Tparams *params, TSemaphores *semaphores, TSMemoryVariables *memory_variables);
 
@@ -111,23 +117,6 @@ void molecule_created(int id, char type, TSemaphores *semaphores, TSMemoryVariab
 
 void inc_molecule_count(TSemaphores *semaphores, TSMemoryVariables *memory_variables);
 
-// signals 
-
-// global variables for signals
-int global_atom_id;
-int global_atom_type;
-int *global_output_count;
-sem_t *global_writing_mutex;
-
-int global_NO;
-int global_NH;
-pid_t *global_children_O, *global_children_H;
-
-void init_globals(int id, char type,TSemaphores *semaphores ,TSMemoryVariables *memory_variables);
-//signal handler
-
-void handle_signal_to_parent(int sig);
-void handle_not_enough_atoms(int sig);
 
 void H_not_enough(int id);
 void O_not_enough(int id);
