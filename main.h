@@ -61,7 +61,7 @@ typedef struct {
     int count_outputs_id;
     int count_molecules_id;
     int barrier_count_id;
-    int molecules_left_id;
+    int max_molecules_id;
     int is_building_possilbe_id;
     int o_left_id;
     int h_left_id;
@@ -73,7 +73,7 @@ typedef struct {
     int *count_outputs;
     int *count_molecules;
     int *barrier_count;
-    int *molecules_left;
+    int *max_molecules;
     int *is_building_possilbe;
     int *o_left;
     int *h_left;
