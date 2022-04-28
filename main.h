@@ -62,6 +62,9 @@ typedef struct {
     int count_molecules_id;
     int barrier_count_id;
     int molecules_left_id;
+    int is_building_possilbe_id;
+    int o_left_id;
+    int h_left_id;
 } TSMemory;
 
 typedef struct {
@@ -71,6 +74,9 @@ typedef struct {
     int *count_molecules;
     int *barrier_count;
     int *molecules_left;
+    int *is_building_possilbe;
+    int *o_left;
+    int *h_left;
 } TSMemoryVariables;
 
 
@@ -92,7 +98,7 @@ int shm_init(TSMemory *memory, TSMemoryVariables *memory_variables);
 
 int shm_destroy(TSMemory *memory, TSMemoryVariables *memory_variables);
 
-void init_max_possible_molecules(int *molecules_left, Tparams *params);
+void init_max_possible_molecules(TSMemoryVariables *memory_variables, Tparams *params);
 
 int parent_process(Tparams *params, TSemaphores *semaphores, TSMemoryVariables *memory_variables);
 

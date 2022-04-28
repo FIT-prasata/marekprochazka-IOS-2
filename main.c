@@ -159,7 +159,10 @@ int shm_init(TSMemory *memory, TSMemoryVariables *memory_variables) {
         (memory->count_outputs_id = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | 0644)) == -1 ||
         (memory->count_molecules_id = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | 0644)) == -1 ||
         (memory->barrier_count_id = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | 0644)) == -1 ||
-        (memory->molecules_left_id = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | 0644)) == -1 
+        (memory->molecules_left_id = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | 0644)) == -1 ||
+        (memory->is_building_possilbe_id = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | 0644)) == -1 ||
+        (memory->o_left_id = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | 0644)) == -1 ||
+        (memory->h_left_id = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | 0644)) == -1 
     ) {
         fprintf(stderr, "Error in shm initialization\n");
         return STATUS_ERROR;
@@ -171,7 +174,10 @@ int shm_init(TSMemory *memory, TSMemoryVariables *memory_variables) {
         (memory_variables->count_outputs = shmat(memory->count_outputs_id, NULL, 0)) == (void *) -1 ||
         (memory_variables->count_molecules = shmat(memory->count_molecules_id, NULL, 0)) == (void *) -1 ||
         (memory_variables->barrier_count = shmat(memory->barrier_count_id, NULL, 0)) == (void *) -1 ||
-        (memory_variables->molecules_left = shmat(memory->molecules_left_id, NULL, 0)) == (void *) -1 
+        (memory_variables->molecules_left = shmat(memory->molecules_left_id, NULL, 0)) == (void *) -1 ||
+        (memory_variables->is_building_possilbe = shmat(memory->is_building_possilbe_id, NULL, 0)) == (void *) -1 ||
+        (memory_variables->o_left = shmat(memory->o_left_id, NULL, 0)) == (void *) -1 ||
+        (memory_variables->h_left = shmat(memory->h_left_id, NULL, 0)) == (void *) -1
     ) {
         fprintf(stderr, "Error in shm initialization\n");
         return STATUS_ERROR;
@@ -182,6 +188,10 @@ int shm_init(TSMemory *memory, TSMemoryVariables *memory_variables) {
     *(memory_variables->count_outputs) = 0;
     *(memory_variables->count_molecules) = 0;
     *(memory_variables->barrier_count) = 0;
+    *(memory_variables->molecules_left) = 0;
+    *(memory_variables->is_building_possilbe) = 1;
+    *(memory_variables->o_left) = 0;
+    *(memory_variables->h_left) = 0;
 
     return STATUS_OK;
 }
@@ -194,7 +204,10 @@ int shm_destroy(TSMemory *memory, TSMemoryVariables *memory_variables) {
         shmdt(memory_variables->count_outputs) == -1 ||
         shmdt(memory_variables->count_molecules) == -1 ||
         shmdt(memory_variables->barrier_count) == -1 ||
-        shmdt(memory_variables->molecules_left) == -1
+        shmdt(memory_variables->molecules_left) == -1 ||
+        shmdt(memory_variables->is_building_possilbe) == -1 ||
+        shmdt(memory_variables->o_left) == -1 ||
+        shmdt(memory_variables->h_left) == -1
     ) {
         fprintf(stderr, "Error in shm destruction while detaching memory blocks\n");
         return STATUS_ERROR;
@@ -207,7 +220,8 @@ int shm_destroy(TSMemory *memory, TSMemoryVariables *memory_variables) {
         shmctl(memory->count_outputs_id, IPC_RMID, NULL) == -1 ||
         shmctl(memory->count_molecules_id, IPC_RMID, NULL) == -1 || 
         shmctl(memory->barrier_count_id, IPC_RMID, NULL) == -1 ||
-        shmctl(memory->molecules_left_id, IPC_RMID, NULL) == -1
+        shmctl(memory->molecules_left_id, IPC_RMID, NULL) == -1 ||
+        shmctl(memory->is_building_possilbe_id, IPC_RMID, NULL) == -1
     ) {
         fprintf(stderr, "Error in shm destruction while destroying memory blocks\n");
         return STATUS_ERROR;
@@ -216,15 +230,17 @@ int shm_destroy(TSMemory *memory, TSMemoryVariables *memory_variables) {
     return STATUS_OK;
 }
 
-void init_max_possible_molecules(int *molecules_left, Tparams *params) {
+void init_max_possible_molecules(TSMemoryVariables *memory_variables, Tparams *params) {
     UNUSED(params);
-    *molecules_left = 1;
+    *(memory_variables->molecules_left) = 1;
+    *(memory_variables->o_left) = 1;
+    *(memory_variables->h_left) = 0;
 }
 
 
 int parent_process(Tparams *params, TSemaphores *semaphores, TSMemoryVariables *memory_variables) {
     pid_t parent_process, children_O[params->NO], children_H[params->NH],   O_process_instance, H_process_instance;
-    init_max_possible_molecules(memory_variables->molecules_left, params);
+    init_max_possible_molecules(memory_variables, params);
     parent_process = fork();
     // Oxyde processes
     if (parent_process == 0) {
@@ -295,6 +311,10 @@ void oxygen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemoryVa
     // wating place for oxygen (can receive not enough signal)
     sem_wait(semaphores->oxyQue);
 
+    if (*memory_variables->is_building_possilbe == 0) {
+        printf("Oxygen %d: I'm not building\n", id);
+        exit(0);
+    }
 
 
     // creating molecule 
@@ -311,6 +331,19 @@ void oxygen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemoryVa
     sem_wait(semaphores->writing_mutex);
     (*memory_variables->molecules_left)--;
     sem_post(semaphores->writing_mutex);
+
+    if (*memory_variables->molecules_left == 0) {
+        printf("starting cleaning busiene\n");
+        sem_wait(semaphores->writing_mutex);
+        *memory_variables->is_building_possilbe = 0;
+        sem_post(semaphores->writing_mutex);
+        for (int i =0; i < *(memory_variables->o_left); i++) {
+            sem_post(semaphores->oxyQue);
+        }
+        for (int i =0; i < *(memory_variables->h_left); i++) {
+            sem_post(semaphores->hydQue);
+        }
+    }
 
 
     exit(STATUS_OK);
@@ -346,6 +379,11 @@ void hydrogen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemory
 
     // wating place for hydrogen
     sem_wait(semaphores->hydQue);
+
+    if (*memory_variables->is_building_possilbe == 0) {
+        printf("Hydrogen %d: I'm not building\n", id);
+        exit(0);
+    }
 
 
 
