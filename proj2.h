@@ -31,6 +31,7 @@
 #define UNUSED(x) (void)(x)
 
 
+
 // Structs
 typedef struct {
     int NO;
@@ -76,6 +77,7 @@ typedef struct {
     int *is_building_possilbe;
     int *o_left; // how many oxygen atoms will be left after all molecules are built
     int *h_left; // how many hydrogen atoms will be left after all molecules are built
+    FILE *file;
 } TSMemoryVariables;
 
 
@@ -84,6 +86,8 @@ typedef struct {
 
 // Save parameters to params struct, if error, save it to error variable
 int handle_args(int argc, char *argv[], Tparams *params);
+
+int file_init(FILE *file);
 
 int barrier_init(TBarrier *barrier, int n);
 
