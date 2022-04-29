@@ -24,7 +24,6 @@ int main(int argc, char *argv[])
         return STATUS_ERROR;
 
     fclose(file);
-    printf("Program finished successfully\n");
     return STATUS_OK;
 }
 
@@ -38,11 +37,18 @@ int handle_args(int argc, char *argv[], Tparams *params)
         fprintf(stderr, "Not enough arguments\n");
         return STATUS_ERROR;
     }
+    if (argc > 5)
+    {
+        fprintf(stderr, "Too many arguments\n");
+        return STATUS_ERROR;
+    }
     // Load arguments
     params->NO = strtol(argv[1], &end_NO, 10);
     params->NH = strtol(argv[2], &end_NH, 10);
     params->TI = strtol(argv[3], &end_TI, 10);
     params->TB = strtol(argv[4], &end_TB, 10);
+
+    
 
     // Check if arguments are loaded correctly
     if (
@@ -56,11 +62,19 @@ int handle_args(int argc, char *argv[], Tparams *params)
         fprintf(stderr, "Error in arguments\n");
         return STATUS_ERROR;
     }
+    if (params->NO <= 0 || params->NH <= 0)
+    {
+        fprintf(stderr, "Invalid number of atoms\n");
+        return STATUS_ERROR;
+    }
+
     return STATUS_OK;
 }
 
-int file_init(){
-    if ((file = fopen("proj2.out", "w")) == NULL) {
+int file_init()
+{
+    if ((file = fopen("proj2.out", "w")) == NULL)
+    {
         fprintf(stderr, "Error opening file\n");
         exit(STATUS_ERROR);
     }
@@ -244,7 +258,9 @@ int shm_destroy(TSMemory *memory, TSMemoryVariables *memory_variables)
         shmctl(memory->count_molecules_id, IPC_RMID, NULL) == -1 ||
         shmctl(memory->barrier_count_id, IPC_RMID, NULL) == -1 ||
         shmctl(memory->max_molecules_id, IPC_RMID, NULL) == -1 ||
-        shmctl(memory->is_building_possilbe_id, IPC_RMID, NULL) == -1)
+        shmctl(memory->is_building_possilbe_id, IPC_RMID, NULL) == -1 ||
+        shmctl(memory->o_left_id, IPC_RMID, NULL) == -1 ||
+        shmctl(memory->h_left_id, IPC_RMID, NULL) == -1)
     {
         fprintf(stderr, "Error in shm destruction while destroying memory blocks\n");
         return STATUS_ERROR;
@@ -255,11 +271,23 @@ int shm_destroy(TSMemory *memory, TSMemoryVariables *memory_variables)
 
 void init_max_possible_molecules(TSMemoryVariables *memory_variables, Tparams *params)
 {
-    // How many molecules can be built
-    *(memory_variables->max_molecules) =  params->NO > params->NH/2 ? params->NH/2 : params->NO;
-    // How many oxygens and hydrogens will be left
-    *(memory_variables->o_left) = params->NO - *(memory_variables->max_molecules);
-    *(memory_variables->h_left) = params->NH - *(memory_variables->max_molecules);
+    // if there are enough atoms to build at least one molecule then proceed the calculation
+    if (params->NO >= 1 && params->NH >= 2)
+    {
+
+        // How many molecules can be built
+        *(memory_variables->max_molecules) = params->NO > params->NH / 2 ? params->NH / 2 : params->NO;
+        // How many oxygens and hydrogens will be left
+        *(memory_variables->o_left) = params->NO - *(memory_variables->max_molecules);
+        *(memory_variables->h_left) = params->NH - *(memory_variables->max_molecules);
+    }
+    else
+    {
+        *(memory_variables->max_molecules) = 0;
+        *(memory_variables->o_left) = params->NO;
+        *(memory_variables->h_left) = params->NH;
+        *(memory_variables->is_building_possilbe) = 0;
+    }
 }
 
 int parent_process(Tparams *params, TSemaphores *semaphores, TSMemoryVariables *memory_variables)
@@ -360,6 +388,15 @@ void oxygen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemoryVa
     // process in que notification
     atom_to_queue(id, type_O, semaphores, memory_variables);
 
+    // if building is not possible before going to queue
+    // don't even go there and exit
+    if (*memory_variables->is_building_possilbe == 0)
+    {
+        O_not_enough(id, semaphores, memory_variables);
+        fclose(memory_variables->file);
+        exit(0);
+    }
+
     // wating place for oxygen
     sem_wait(semaphores->oxyQueue);
 
@@ -444,6 +481,15 @@ void hydrogen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemory
     // process in que notification
     atom_to_queue(id, type_H, semaphores, memory_variables);
 
+    // if building is not possible before going to queue
+    // don't even go there and exit
+    if (*memory_variables->is_building_possilbe == 0)
+    {
+        O_not_enough(id, semaphores, memory_variables);
+        fclose(memory_variables->file);
+        exit(0);
+    }
+
     // wating place for hydrogen
     sem_wait(semaphores->hydQueue);
 
@@ -524,7 +570,7 @@ void atom_to_queue(int id, char type, TSemaphores *semaphores, TSMemoryVariables
 {
     sem_wait(semaphores->writing_mutex);
     (*memory_variables->count_outputs)++;
-    fprintf(file, "%d: %c %d: going to que\n", *(memory_variables->count_outputs), type, id);
+    fprintf(file, "%d: %c %d: going to queue\n", *(memory_variables->count_outputs), type, id);
     fflush(file);
     sem_post(semaphores->writing_mutex);
 }
