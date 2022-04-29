@@ -30,6 +30,7 @@
 
 #define UNUSED(x) (void)(x)
 
+FILE *file;
 
 // Structs
 typedef struct {
@@ -84,6 +85,8 @@ typedef struct {
 
 // Save parameters to params struct, if error, save it to error variable
 int handle_args(int argc, char *argv[], Tparams *params);
+
+int file_init();
 
 int barrier_init(TBarrier *barrier, int n);
 

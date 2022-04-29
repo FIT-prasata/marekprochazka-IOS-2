@@ -1,0 +1,51 @@
+1: H 1: started
+2: H 6: started
+3: H 10: started
+4: O 1: started
+5: H 5: started
+6: H 4: started
+7: H 2: started
+8: H 7: started
+9: H 8: started
+10: H 9: started
+11: H 3: started
+12: H 11: started
+13: H 12: started
+14: H 13: started
+15: H 15: started
+16: H 14: started
+17: H 2: going to que
+18: H 5: going to que
+19: H 13: going to que
+20: H 12: going to que
+21: H 3: going to que
+22: H 1: going to que
+23: H 8: going to que
+24: H 7: going to que
+25: H 6: going to que
+26: H 15: going to que
+27: H 11: going to que
+28: H 10: going to que
+29: O 1: going to que
+30: O 1: creating molecule 1
+31: H 5: creating molecule 1
+32: H 2: creating molecule 1
+33: H 2: molecule 1 created
+34: H 5: molecule 1 created
+35: O 1: molecule 1 created
+36: H 9: going to que
+37: H 9: not enough O or H
+38: H 12: not enough O or H
+39: H 4: going to que
+40: H 4: not enough O or H
+41: H 14: going to que
+42: H 14: not enough O or H
+43: H 8: not enough O or H
+44: H 7: not enough O or H
+45: H 15: not enough O or H
+46: H 6: not enough O or H
+47: H 11: not enough O or H
+48: H 10: not enough O or H
+49: H 13: not enough O or H
+50: H 3: not enough O or H
+51: H 1: not enough O or H
