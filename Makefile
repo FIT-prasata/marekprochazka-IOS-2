@@ -4,7 +4,7 @@ CFLAGS=-std=gnu99 -Wall -Wextra  -pedantic -pthread
 all: proj2
 
 run: proj2
-	./proj2 1 15 100 100
+	./proj2 3 5 100 100
 	cat proj2.out
 
 # GENERATE .o FILES

@@ -485,7 +485,7 @@ void hydrogen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemory
     // don't even go there and exit
     if (*memory_variables->is_building_possilbe == 0)
     {
-        O_not_enough(id, semaphores, memory_variables);
+        H_not_enough(id, semaphores, memory_variables);
         fclose(memory_variables->file);
         exit(0);
     }
