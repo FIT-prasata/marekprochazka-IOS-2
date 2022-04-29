@@ -47,15 +47,14 @@ typedef struct {
 } TBarrier;
 
 typedef struct {
-    sem_t *writing_mutex;
-    sem_t *building_mutex;
-    TBarrier *barrier;
-    TBarrier *barrier2;
-    sem_t *oxyQue;
-    sem_t *hydQue;
+    sem_t *writing_mutex; // mutex for writing to shared memory
+    sem_t *building_mutex; // mutex for atoms
+    TBarrier *barrier; // barrier used ensure atoms of molecule will leave together
+    sem_t *oxyQueue; 
+    sem_t *hydQueue;
 } TSemaphores;
 
-typedef struct {
+typedef struct { // struct of id's used in initialization of shared memory
     int oxygen_id;
     int hydrogen_id;
     int count_outputs_id;
@@ -68,15 +67,15 @@ typedef struct {
 } TSMemory;
 
 typedef struct {
-    int *oxygen;
-    int *hydrogen;
-    int *count_outputs;
+    int *oxygens_in_que; 
+    int *hydrogens_in_que; 
+    int *count_outputs; 
     int *count_molecules;
     int *barrier_count;
     int *max_molecules;
     int *is_building_possilbe;
-    int *o_left;
-    int *h_left;
+    int *o_left; // how many oxygen atoms will be left after all molecules are built
+    int *h_left; // how many hydrogen atoms will be left after all molecules are built
 } TSMemoryVariables;
 
 
@@ -118,8 +117,8 @@ void molecule_created(int id, char type, TSemaphores *semaphores, TSMemoryVariab
 void inc_molecule_count(TSemaphores *semaphores, TSMemoryVariables *memory_variables);
 
 
-void H_not_enough(int id);
-void O_not_enough(int id);
+void H_not_enough(int id, TSemaphores *semaphores, TSMemoryVariables *memory_variables);
+void O_not_enough(int id, TSemaphores *semaphores, TSMemoryVariables *memory_variables);
 
 
 
