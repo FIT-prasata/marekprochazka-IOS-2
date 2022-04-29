@@ -1,15 +1,15 @@
 cc=gcc
-CFLAGS=-std=gnu99 -Wall -Wextra -Werror -pedantic -pthread -lpthread
+CFLAGS=-std=gnu99 -Wall -Wextra -Werror -pedantic -pthread 
 
-all: main
+all: proj2
 
 # GEN .o files
 
-main.o: main.c
+proj2.o: proj2.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # BUILD EXECUTABLES
-main: main.o
+proj2: proj2.o
 	$(CC) $(CFLAGS) $^ -o $@
 
 # Delete .o files
