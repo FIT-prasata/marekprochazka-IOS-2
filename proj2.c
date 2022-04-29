@@ -59,8 +59,10 @@ int handle_args(int argc, char *argv[], Tparams *params)
     return STATUS_OK;
 }
 
-int file_init(){
-    if ((file = fopen("proj2.out", "w")) == NULL) {
+int file_init()
+{
+    if ((file = fopen("proj2.out", "w")) == NULL)
+    {
         fprintf(stderr, "Error opening file\n");
         exit(STATUS_ERROR);
     }
@@ -116,15 +118,18 @@ int semaphores_init(TSemaphores *semaphores)
 {
     // Allocating memory for barrier struct inside semaphores struct
     semaphores->barrier = (TBarrier *)malloc(sizeof(TBarrier));
+    semaphores->barrier_before_building = (TBarrier *)malloc(sizeof(TBarrier));
 
     // Initializing barrier
     int err_barrier = barrier_init(semaphores->barrier, 3);
+    int err_barrier_before_building = barrier_init(semaphores->barrier_before_building, 3);
 
     // mapping rest of the semaphores
     semaphores->writing_mutex = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
     semaphores->building_mutex = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
     semaphores->oxyQueue = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
     semaphores->hydQueue = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, 0, 0);
+
 
     // Initializing semaphores
     sem_init(semaphores->writing_mutex, 1, 1);
@@ -138,7 +143,8 @@ int semaphores_init(TSemaphores *semaphores)
         semaphores->building_mutex == SEM_FAILED ||
         err_barrier == STATUS_ERROR ||
         semaphores->oxyQueue == SEM_FAILED ||
-        semaphores->hydQueue == SEM_FAILED)
+        semaphores->hydQueue == SEM_FAILED ||
+        err_barrier_before_building == STATUS_ERROR)
     {
         fprintf(stderr, "Error in semaphores initialization\n");
         return STATUS_ERROR;
@@ -155,6 +161,7 @@ int semaphores_destroy(TSemaphores *semaphores)
     sem_destroy(semaphores->hydQueue);
 
     int err_barrier = barrier_destroy(semaphores->barrier);
+    int err_barrier_before_building = barrier_destroy(semaphores->barrier_before_building);
 
     // Checking if semaphores are destroyed
     if (
@@ -162,7 +169,8 @@ int semaphores_destroy(TSemaphores *semaphores)
         semaphores->building_mutex == SEM_FAILED ||
         semaphores->oxyQueue == SEM_FAILED ||
         semaphores->hydQueue == SEM_FAILED ||
-        err_barrier == STATUS_ERROR)
+        err_barrier == STATUS_ERROR ||
+        err_barrier_before_building == STATUS_ERROR)
     {
         fprintf(stderr, "Error in semaphores destruction\n");
         return STATUS_ERROR;
@@ -181,6 +189,7 @@ int shm_init(TSMemory *memory, TSMemoryVariables *memory_variables)
         (memory->count_outputs_id = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | 0644)) == -1 ||
         (memory->count_molecules_id = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | 0644)) == -1 ||
         (memory->barrier_count_id = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | 0644)) == -1 ||
+        (memory->barrier_before_building_count_id = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | 0644)) == -1 ||
         (memory->max_molecules_id = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | 0644)) == -1 ||
         (memory->is_building_possilbe_id = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | 0644)) == -1 ||
         (memory->o_left_id = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | 0644)) == -1 ||
@@ -196,6 +205,7 @@ int shm_init(TSMemory *memory, TSMemoryVariables *memory_variables)
         (memory_variables->count_outputs = shmat(memory->count_outputs_id, NULL, 0)) == (void *)-1 ||
         (memory_variables->count_molecules = shmat(memory->count_molecules_id, NULL, 0)) == (void *)-1 ||
         (memory_variables->barrier_count = shmat(memory->barrier_count_id, NULL, 0)) == (void *)-1 ||
+        (memory_variables->barrier_before_building_count = shmat(memory->barrier_before_building_count_id, NULL, 0)) == (void *)-1 ||
         (memory_variables->max_molecules = shmat(memory->max_molecules_id, NULL, 0)) == (void *)-1 ||
         (memory_variables->is_building_possilbe = shmat(memory->is_building_possilbe_id, NULL, 0)) == (void *)-1 ||
         (memory_variables->o_left = shmat(memory->o_left_id, NULL, 0)) == (void *)-1 ||
@@ -210,6 +220,7 @@ int shm_init(TSMemory *memory, TSMemoryVariables *memory_variables)
     *(memory_variables->count_outputs) = 0;
     *(memory_variables->count_molecules) = 0;
     *(memory_variables->barrier_count) = 0;
+    *(memory_variables->barrier_before_building_count) = 0;
     *(memory_variables->max_molecules) = 0;
     *(memory_variables->is_building_possilbe) = 1;
     *(memory_variables->o_left) = 0;
@@ -227,6 +238,7 @@ int shm_destroy(TSMemory *memory, TSMemoryVariables *memory_variables)
         shmdt(memory_variables->count_outputs) == -1 ||
         shmdt(memory_variables->count_molecules) == -1 ||
         shmdt(memory_variables->barrier_count) == -1 ||
+        shmdt(memory_variables->barrier_before_building_count) == -1 ||
         shmdt(memory_variables->max_molecules) == -1 ||
         shmdt(memory_variables->is_building_possilbe) == -1 ||
         shmdt(memory_variables->o_left) == -1 ||
@@ -243,6 +255,7 @@ int shm_destroy(TSMemory *memory, TSMemoryVariables *memory_variables)
         shmctl(memory->count_outputs_id, IPC_RMID, NULL) == -1 ||
         shmctl(memory->count_molecules_id, IPC_RMID, NULL) == -1 ||
         shmctl(memory->barrier_count_id, IPC_RMID, NULL) == -1 ||
+        shmctl(memory->barrier_before_building_count_id, IPC_RMID, NULL) == -1 ||
         shmctl(memory->max_molecules_id, IPC_RMID, NULL) == -1 ||
         shmctl(memory->is_building_possilbe_id, IPC_RMID, NULL) == -1)
     {
@@ -255,11 +268,23 @@ int shm_destroy(TSMemory *memory, TSMemoryVariables *memory_variables)
 
 void init_max_possible_molecules(TSMemoryVariables *memory_variables, Tparams *params)
 {
-    // How many molecules can be built
-    *(memory_variables->max_molecules) =  params->NO > params->NH/2 ? params->NH/2 : params->NO;
-    // How many oxygens and hydrogens will be left
-    *(memory_variables->o_left) = params->NO - *(memory_variables->max_molecules);
-    *(memory_variables->h_left) = params->NH - *(memory_variables->max_molecules);
+    // if there are enough atoms to build at least one molecule then proceed the calculation
+    if (params->NO >= 1 && params->NH >= 2)
+    {
+
+        // How many molecules can be built
+        *(memory_variables->max_molecules) = params->NO > params->NH / 2 ? params->NH / 2 : params->NO;
+        // How many oxygens and hydrogens will be left
+        *(memory_variables->o_left) = params->NO - *(memory_variables->max_molecules);
+        *(memory_variables->h_left) = params->NH - *(memory_variables->max_molecules);
+    }
+    else
+    {
+        *(memory_variables->max_molecules) = 0;
+        *(memory_variables->o_left) = params->NO;
+        *(memory_variables->h_left) = params->NH;
+        *(memory_variables->is_building_possilbe) = 0;
+    }
 }
 
 int parent_process(Tparams *params, TSemaphores *semaphores, TSMemoryVariables *memory_variables)
@@ -322,6 +347,7 @@ int parent_process(Tparams *params, TSemaphores *semaphores, TSMemoryVariables *
 
 void oxygen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemoryVariables *memory_variables)
 {
+
     // setting seed for pseudo-random number generator
     srand(getpid());
     // process start notification
@@ -360,6 +386,17 @@ void oxygen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemoryVa
     // process in que notification
     atom_to_queue(id, type_O, semaphores, memory_variables);
 
+
+    // if building is not possible before going to queue
+    // don't even go there and exit
+    if (*memory_variables->is_building_possilbe == 0)
+    {
+        O_not_enough(id, semaphores, memory_variables);
+        fclose(memory_variables->file);
+        exit(0);
+    }
+
+    
     // wating place for oxygen
     sem_wait(semaphores->oxyQueue);
 
@@ -372,6 +409,7 @@ void oxygen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemoryVa
         exit(0);
     }
 
+    wait_barrier(semaphores->barrier_before_building, memory_variables->barrier_before_building_count);
     // creating molecule
     // process creating molecule notification
     atom_creating_molecule(id, type_O, semaphores, memory_variables);
@@ -419,6 +457,15 @@ void hydrogen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemory
     // simulating hydrogen way to queue
     usleep(rand() % (params->TI + 1) * 1000);
 
+    // if building is not possible before going to queue
+    // don't even go there and exit
+    if (*memory_variables->is_building_possilbe == 0)
+    {
+        O_not_enough(id, semaphores, memory_variables);
+        fclose(memory_variables->file);
+        exit(0);
+    }
+
     // increasing number of existing hydrogens
     sem_wait(semaphores->building_mutex);
     (*memory_variables->hydrogens_in_que)++;
@@ -455,6 +502,7 @@ void hydrogen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemory
         fclose(memory_variables->file);
         exit(0);
     }
+    wait_barrier(semaphores->barrier_before_building, memory_variables->barrier_before_building_count);
 
     // creating molecule
     // process creating molecule notification

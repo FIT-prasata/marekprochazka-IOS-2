@@ -52,6 +52,7 @@ typedef struct {
     sem_t *writing_mutex; // mutex for writing to shared memory
     sem_t *building_mutex; // mutex for atoms
     TBarrier *barrier; // barrier used ensure atoms of molecule will leave together
+    TBarrier *barrier_before_building;
     sem_t *oxyQueue; 
     sem_t *hydQueue;
 } TSemaphores;
@@ -62,6 +63,7 @@ typedef struct { // struct of id's used in initialization of shared memory
     int count_outputs_id;
     int count_molecules_id;
     int barrier_count_id;
+    int barrier_before_building_count_id;
     int max_molecules_id;
     int is_building_possilbe_id;
     int o_left_id;
@@ -74,6 +76,7 @@ typedef struct {
     int *count_outputs; 
     int *count_molecules;
     int *barrier_count;
+    int *barrier_before_building_count;
     int *max_molecules;
     int *is_building_possilbe;
     int *o_left; // how many oxygen atoms will be left after all molecules are built
