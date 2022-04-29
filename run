@@ -3,4 +3,4 @@
 
 make clean --silent
 make --silent
-./proj2 1 15 50 40
+./main 1 15 50 40

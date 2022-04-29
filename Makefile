@@ -1,23 +1,17 @@
-CC=gcc
-CFLAGS=-std=gnu99 -Wall -Wextra  -pedantic -pthread
+cc=gcc
+CFLAGS=-std=gnu99 -Wall -Wextra -Werror -pedantic -pthread -lpthread
 
-all: proj2
+all: main
 
-run: proj2
-	./proj2 4 5 100 100
-	cat proj2.out
+# GEN .o files
 
-# GENERATE .o FILES
-
-proj2.o: proj2.c
+main.o: main.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # BUILD EXECUTABLES
+main: main.o
+	$(CC) $(CFLAGS) $^ -o $@
 
-proj2: proj2.o
-	$(CC) $(CFLAGS) $< -o $@
-
-# DELETE ALL .o FILES AND EXECUTABLE
-
+# Delete .o files
 clean:
-	rm *.o proj2 proj2.out
+	rm -f *.o
