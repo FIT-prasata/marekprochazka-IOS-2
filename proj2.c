@@ -10,7 +10,7 @@ int main(int argc, char *argv[])
 
     if (handle_args(argc, argv, &params) != STATUS_OK)
         return STATUS_ERROR;
-    if (file_init(file) != STATUS_OK)
+    if (file_init(memory_variables.file) != STATUS_OK)
         return STATUS_ERROR;
     if (semaphores_init(&semaphores) != STATUS_OK)
         return STATUS_ERROR;
@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
         return STATUS_ERROR;
 
     printf("Program finished successfully\n");
-    fclose(file);
+    fclose(memory_variables.file);
     return STATUS_OK;
 }
 
@@ -314,7 +314,7 @@ int parent_process(Tparams *params, TSemaphores *semaphores, TSMemoryVariables *
     }
     if (parent_process == 0)
     {
-        fclose(file);
+        fclose(memory_variables->file);
         exit(0);
     }
 
@@ -369,7 +369,7 @@ void oxygen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemoryVa
     if (*memory_variables->is_building_possilbe == 0)
     {
         O_not_enough(id, semaphores, memory_variables);
-        fclose(file);
+        fclose(memory_variables->file);
         exit(0);
     }
 
@@ -408,7 +408,7 @@ void oxygen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemoryVa
             sem_post(semaphores->hydQueue);
         }
     }
-    fclose(file);
+    fclose(memory_variables->file);
     exit(STATUS_OK);
 }
 void hydrogen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemoryVariables *memory_variables)
@@ -453,7 +453,7 @@ void hydrogen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemory
     if (*memory_variables->is_building_possilbe == 0)
     {
         H_not_enough(id, semaphores, memory_variables);
-        fclose(file);
+        fclose(memory_variables->file);
         exit(0);
     }
 
@@ -466,7 +466,7 @@ void hydrogen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemory
     // molecule created notification
     molecule_created(id, type_H, semaphores, memory_variables);
 
-    fclose(file);
+    fclose(memory_variables->file);
     exit(STATUS_OK);
 }
 
@@ -516,8 +516,8 @@ void atom_start(int id, char type, TSemaphores *semaphores, TSMemoryVariables *m
 {
     sem_wait(semaphores->writing_mutex);
     (*memory_variables->count_outputs)++;
-    fprintf(file ,"%d: %c %d: started\n", *(memory_variables->count_outputs), type, id);
-    fflush(file);
+    fprintf(memory_variables->file ,"%d: %c %d: started\n", *(memory_variables->count_outputs), type, id);
+    fflush(memory_variables->file);
     sem_post(semaphores->writing_mutex);
 }
 
@@ -525,8 +525,8 @@ void atom_to_queue(int id, char type, TSemaphores *semaphores, TSMemoryVariables
 {
     sem_wait(semaphores->writing_mutex);
     (*memory_variables->count_outputs)++;
-    fprintf(file ,"%d: %c %d: going to que\n", *(memory_variables->count_outputs), type, id);
-    fflush(file);
+    fprintf(memory_variables->file ,"%d: %c %d: going to que\n", *(memory_variables->count_outputs), type, id);
+    fflush(memory_variables->file);
     sem_post(semaphores->writing_mutex);
 }
 
@@ -534,8 +534,8 @@ void atom_creating_molecule(int id, char type, TSemaphores *semaphores, TSMemory
 {
     sem_wait(semaphores->writing_mutex);
     (*memory_variables->count_outputs)++;
-    fprintf(file ,"%d: %c %d: creating molecule %d\n", *(memory_variables->count_outputs), type, id, *(memory_variables->count_molecules) + 1);
-    fflush(file);
+    fprintf(memory_variables->file ,"%d: %c %d: creating molecule %d\n", *(memory_variables->count_outputs), type, id, *(memory_variables->count_molecules) + 1);
+    fflush(memory_variables->file);
     sem_post(semaphores->writing_mutex);
 }
 
@@ -543,8 +543,8 @@ void molecule_created(int id, char type, TSemaphores *semaphores, TSMemoryVariab
 {
     sem_wait(semaphores->writing_mutex);
     (*memory_variables->count_outputs)++;
-    fprintf(file ,"%d: %c %d: molecule %d created\n", *(memory_variables->count_outputs), type, id, *(memory_variables->count_molecules));
-    fflush(file);
+    fprintf(memory_variables->file ,"%d: %c %d: molecule %d created\n", *(memory_variables->count_outputs), type, id, *(memory_variables->count_molecules));
+    fflush(memory_variables->file);
     sem_post(semaphores->writing_mutex);
 }
 
@@ -552,8 +552,8 @@ void O_not_enough(int id, TSemaphores *semaphores, TSMemoryVariables *memory_var
 {
     sem_wait(semaphores->writing_mutex);
     (*memory_variables->count_outputs)++;
-    fprintf(file ,"%d: O %d: not enough H\n", *(memory_variables->count_outputs), id);
-    fflush(file);
+    fprintf(memory_variables->file ,"%d: O %d: not enough H\n", *(memory_variables->count_outputs), id);
+    fflush(memory_variables->file);
     sem_post(semaphores->writing_mutex);
 }
 
@@ -561,8 +561,8 @@ void H_not_enough(int id, TSemaphores *semaphores, TSMemoryVariables *memory_var
 {
     sem_wait(semaphores->writing_mutex);
     (*memory_variables->count_outputs)++;
-    fprintf(file ,"%d: H %d: not enough O or H\n", *(memory_variables->count_outputs), id);
-    fflush(file);
+    fprintf(memory_variables->file ,"%d: H %d: not enough O or H\n", *(memory_variables->count_outputs), id);
+    fflush(memory_variables->file);
     sem_post(semaphores->writing_mutex);
 }
 
