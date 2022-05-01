@@ -341,7 +341,7 @@ int parent_process(Tparams *params, TSemaphores *semaphores, TSMemoryVariables *
     }
     if (parent_process == 0)
     {
-        fclose(memory_variables->file);
+        fclose(file);
         exit(0);
     }
 
@@ -393,7 +393,7 @@ void oxygen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemoryVa
     if (*memory_variables->is_building_possilbe == 0)
     {
         O_not_enough(id, semaphores, memory_variables);
-        fclose(memory_variables->file);
+        fclose(file);
         exit(0);
     }
 
@@ -405,7 +405,7 @@ void oxygen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemoryVa
     if (*memory_variables->is_building_possilbe == 0)
     {
         O_not_enough(id, semaphores, memory_variables);
-        fclose(memory_variables->file);
+        fclose(file);
         exit(0);
     }
 
@@ -444,7 +444,7 @@ void oxygen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemoryVa
             sem_post(semaphores->hydQueue);
         }
     }
-    fclose(memory_variables->file);
+    fclose(file);
     exit(STATUS_OK);
 }
 void hydrogen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemoryVariables *memory_variables)
@@ -486,7 +486,7 @@ void hydrogen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemory
     if (*memory_variables->is_building_possilbe == 0)
     {
         H_not_enough(id, semaphores, memory_variables);
-        fclose(memory_variables->file);
+        fclose(file);
         exit(0);
     }
 
@@ -498,7 +498,7 @@ void hydrogen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemory
     if (*memory_variables->is_building_possilbe == 0)
     {
         H_not_enough(id, semaphores, memory_variables);
-        fclose(memory_variables->file);
+        fclose(file);
         exit(0);
     }
 
@@ -511,7 +511,7 @@ void hydrogen_process(int id, Tparams *params, TSemaphores *semaphores, TSMemory
     // molecule created notification
     molecule_created(id, type_H, semaphores, memory_variables);
 
-    fclose(memory_variables->file);
+    fclose(file);
     exit(STATUS_OK);
 }
 
