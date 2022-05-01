@@ -356,7 +356,7 @@ def processSucess(NO, NH, TI, TB):
 				sleeps += 1
 			if "nanosleep" in line and "tv_nsec=" in line:
 				sleepTimes.append(int(line.split("tv_nsec=")[1].split("}")[0]))
-		if forks != NO+NH+1:
+		if forks != NO+NH:
 			err(f"Wrong amount of forks: expected {NO+NH}, found {forks}")
 		if sleeps != NO+NH+expectedMoleculeCnt:
 			err(f"Wrong amount of sleeps: expected {NO+NH+expectedMoleculeCnt}, found {sleeps}")

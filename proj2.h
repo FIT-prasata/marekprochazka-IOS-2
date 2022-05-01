@@ -78,7 +78,6 @@ typedef struct {
     int *is_building_possilbe;
     int *o_left; // how many oxygen atoms will be left after all molecules are built
     int *h_left; // how many hydrogen atoms will be left after all molecules are built
-    FILE *file;
 } TSMemoryVariables;
 
 

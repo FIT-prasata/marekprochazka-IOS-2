@@ -48,8 +48,6 @@ int handle_args(int argc, char *argv[], Tparams *params)
     params->TI = strtol(argv[3], &end_TI, 10);
     params->TB = strtol(argv[4], &end_TB, 10);
 
-    
-
     // Check if arguments are loaded correctly
     if (
         (strcmp(end_NO, "")) ||
@@ -292,57 +290,43 @@ void init_max_possible_molecules(TSMemoryVariables *memory_variables, Tparams *p
 
 int parent_process(Tparams *params, TSemaphores *semaphores, TSMemoryVariables *memory_variables)
 {
-    pid_t parent_process, children_O[params->NO], children_H[params->NH], O_process_instance, H_process_instance;
+    pid_t children_O[params->NO], children_H[params->NH], O_process_instance, H_process_instance;
 
     // Initializing max_possible_molecules, o_left and h_left variables
     init_max_possible_molecules(memory_variables, params);
 
-    // First fork
-    parent_process = fork();
-
     // Oxyde processes factory
-    if (parent_process == 0)
+
+    for (int i = 0; i < params->NO; i++)
     {
-        for (int i = 0; i < params->NO; i++)
+        O_process_instance = fork();
+        if (O_process_instance == 0)
         {
-            O_process_instance = fork();
-            if (O_process_instance == 0)
-            {
-                oxygen_process(i + 1, params, semaphores, memory_variables);
-            }
-            children_O[i] = O_process_instance;
+            oxygen_process(i + 1, params, semaphores, memory_variables);
         }
-        // wait for child processes to exit
-        for (int i = 0; i < params->NO; i++)
-        {
-            waitpid(children_O[i], NULL, 0);
-        }
+        children_O[i] = O_process_instance;
     }
 
     // Hydrogen processes factory
-    else
+
+    for (int i = 0; i < params->NH; i++)
     {
-        for (int i = 0; i < params->NH; i++)
-        {
-            H_process_instance = fork();
-            if (H_process_instance == 0)
-            {
-
-                hydrogen_process(i + 1, params, semaphores, memory_variables);
-            }
-            children_H[i] = H_process_instance;
-        }
-        // wait for child processes to exit
-        for (int i = 0; i < params->NH; i++)
+        H_process_instance = fork();
+        if (H_process_instance == 0)
         {
 
-            waitpid(children_H[i], NULL, 0);
+            hydrogen_process(i + 1, params, semaphores, memory_variables);
         }
+        children_H[i] = H_process_instance;
     }
-    if (parent_process == 0)
+    // wait for child processes to exit
+    for (int i = 0; i < params->NO; i++)
     {
-        fclose(file);
-        exit(0);
+        waitpid(children_O[i], NULL, 0);
+    }
+    for (int i = 0; i < params->NH; i++)
+    {
+        waitpid(children_H[i], NULL, 0);
     }
 
     return STATUS_OK;
